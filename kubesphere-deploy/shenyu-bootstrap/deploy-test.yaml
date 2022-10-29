@@ -1,0 +1,81 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: shenyu-bootstrap-test
+  namespace: dap-test-env
+  labels:
+    app: shenyu-bootstrap-test
+  annotations:
+    deployment.kubernetes.io/revision: '22'
+    kubesphere.io/creator: admin
+    kubesphere.io/description: 测试环境网关服务
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shenyu-bootstrap-test
+  template:
+    metadata:
+      labels:
+        app: shenyu-bootstrap-test
+    spec:
+      volumes:
+        - name: host-time
+          hostPath:
+            path: /etc/localtime
+            type: ''
+        - name: volume-conf-1
+          configMap:
+            name: shenyu-bootstrap-test-conf
+            items:
+              - key: application.yml
+                path: application.yml
+            defaultMode: 420
+        - name: volume-conf-2
+          configMap:
+            name: shenyu-bootstrap-test-conf
+            items:
+              - key: application-docker.yml
+                path: application-docker.yml
+            defaultMode: 420
+      containers:
+        - name: container-shenyu-bootstrap-test
+          image: >-
+            harbor.dap.local/expos/shenyu-bootstrap-2.4.3:$BUILD_NUMBER
+          ports:
+            - name: http-9195
+              containerPort: 9195
+              protocol: TCP
+          env:
+            - name: envType
+              value: test
+          resources: {}
+          volumeMounts:
+            - name: host-time
+              readOnly: true
+              mountPath: /etc/localtime
+            - name: volume-conf-1
+              readOnly: true
+              mountPath: /opt/shenyu-bootstrap/conf/application.yml
+              subPath: application.yml
+            - name: volume-conf-2
+              readOnly: true
+              mountPath: /opt/shenyu-bootstrap/conf/application-docker.yml
+              subPath: application-docker.yml
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          imagePullPolicy: IfNotPresent
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      serviceAccountName: default
+      serviceAccount: default
+      securityContext: {}
+      schedulerName: default-scheduler
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600

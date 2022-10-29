@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="false" debug="false">
+    <include resource="com/cubigdata/expos/framework/log/logback-common.xml"/>
+</configuration>

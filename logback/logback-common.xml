@@ -1,0 +1,420 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<included>
+    <contextListener class="com.cubigdata.expos.framework.log.listener.LogbackStartupListener"/>
+<!--    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>-->
+    <!--定义日志存放的位置，默认存放在项目启动的相对路径的目录-->
+    <springProperty name="APP_NAME" scope="context" source="expos.log.name"/>
+    <springProperty name="LOG_ENABLE" scope="context" source="expos.log.enable" defaultValue="true"/>
+    <springProperty name="APP_HOME" scope="context" source="expos.home" defaultValue="./"/>
+    <springProperty name="LOG_PATH" scope="context" source="expos.log.path" defaultValue="${APP_HOME}/logs"/>
+    <springProperty name="LOG_LEVEL" scope="context" source="expos.log.level" defaultValue="info"/>
+    <springProperty name="LOGSTASH_ENABLE" scope="context" source="expos.logstash.enable" defaultValue="false"/>
+<!--    <springProperty name="LOGOPERATION_ENABLE" scope="context" source="expos.operation.enable" defaultValue="false"/>-->
+<!--    <springProperty name="LOG_TYPE" scope="context" source="expos.log.type" defaultValue="file"/>-->
+    <!--    <springProperty name="REDIS_HOST" scope="context" source="spring.redis.host" defaultValue="localhost"/>-->
+    <!--    <springProperty name="REDIS_PORT" scope="context" source="spring.redis.port" defaultValue="6379"/>-->
+    <!--    <springProperty name="REDIS_PASSWORD" scope="context" source="spring.redis.password" defaultValue=""/>-->
+    <!--    <springProperty name="REDIS_DATABASE" scope="context" source="spring.redis.database" defaultValue="0"/>-->
+    <!--    <springProperty name="REDIS_LOG_KEY" scope="context" source="expos.log.redis.key" defaultValue="expos-log"/>-->
+    <!-- 控制台日志输出格式 -->
+    <property name="CONSOLE_LOG_PATTERN"
+              value="%highlight(%d{yyyy-MM-dd HH:mm:ss.SSS}) %clr(%-5level) %clr([%X{TID:-}]){yellow} %cyan([%thread]) %green(%-40.40logger{39}){cyan} : %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"/>
+    <!-- 文件日志输出格式 -->
+    <property name="FILE_LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{TID:-}] [%thread] %-40.40logger{39} : %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"/>
+    <conversionRule conversionWord="clr" converterClass="org.springframework.boot.logging.logback.ColorConverter"/>
+    <conversionRule conversionWord="wex"
+                    converterClass="org.springframework.boot.logging.logback.WhitespaceThrowableProxyConverter"/>
+    <conversionRule conversionWord="wEx"
+                    converterClass="org.springframework.boot.logging.logback.ExtendedWhitespaceThrowableProxyConverter"/>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <charset>utf-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 日志记录器，日期滚动记录 -->
+    <appender name="FILE_ERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">
+
+        <!-- 正在记录的日志文件的路径及文件名 -->
+        <file>${LOG_PATH}/${APP_NAME}-error.log</file>
+
+        <!-- 日志记录器的滚动策略，按日期，按大小记录 -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+
+            <!-- 归档的日志文件的路径，%d{yyyy-MM-dd}指定日期格式，%i指定索引 -->
+            <!--            <fileNamePattern>${LOG_PATH}/error/${APP_NAME}-error-%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+            <fileNamePattern>${LOG_PATH}/error/${APP_NAME}-error-%d{yyyy-MM-dd}.log</fileNamePattern>
+
+            <!-- 除按日志记录之外，还配置了日志文件不能超过10M，若超过10M，日志文件会以索引0开始，
+            命名日志文件，例如log-error-2013-12-21.0.log -->
+            <!--            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">-->
+            <!--                <maxFileSize>10MB</maxFileSize>-->
+            <!--            </timeBasedFileNamingAndTriggeringPolicy>-->
+        </rollingPolicy>
+
+        <!-- 追加方式记录日志 -->
+        <append>true</append>
+
+        <!-- 日志文件的格式 -->
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>utf-8</charset>
+        </encoder>
+
+        <!-- 此日志文件只记录error级别的 -->
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>error</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+    </appender>
+
+    <!-- 日志记录器，日期滚动记录 -->
+    <appender name="FILE_ALL" class="ch.qos.logback.core.rolling.RollingFileAppender">
+
+        <!-- 正在记录的日志文件的路径及文件名 -->
+        <file>${LOG_PATH}/${APP_NAME}-total.log</file>
+        <!-- 日志记录器的滚动策略，按日期，按大小记录 -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/total/${APP_NAME}-total.%d{yyyyMMdd}.gz</fileNamePattern>
+            <!--<maxFileSize>1024MB</maxFileSize>-->
+            <maxHistory>7</maxHistory>
+            <!--<totalSizeCap>8GB</totalSizeCap>-->
+        </rollingPolicy>
+
+        <!-- 追加方式记录日志 -->
+        <append>true</append>
+
+        <!-- 日志文件的格式 -->
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>utf-8</charset>
+        </encoder>
+
+        <!-- 此日志文件按配置级别记录 -->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>${LOG_LEVEL}</level>
+<!--            <onMatch>ACCEPT</onMatch>-->
+<!--            <onMismatch>DENY</onMismatch>-->
+        </filter>
+    </appender>
+    <!-- 异步输出 -->
+    <appender name="ALL_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+        <discardingThreshold>0</discardingThreshold>
+        <queueSize>256</queueSize>
+        <appender-ref ref="FILE_ALL"/>
+    </appender>
+    <!-- redis同步输出 -->
+    <!--    <appender name="REDIS" class="com.cubigdata.expos.framework.log.appender.RedisAppender">-->
+    <!--        <Host>${REDIS_HOST}</Host>-->
+    <!--        <Port>${REDIS_PORT}</Port>-->
+    <!--        <Password>${REDIS_PASSWORD}</Password>-->
+    <!--        <Database>${REDIS_DATABASE}</Database>-->
+    <!--        <Key>${REDIS_LOG_KEY}</Key>-->
+    <!--        &lt;!&ndash; 日志文件的格式 &ndash;&gt;-->
+    <!--        <encoder class="com.cubigdata.expos.framework.log.encoder.JsonEncoder">-->
+    <!--&lt;!&ndash;            <pattern>${FILE_LOG_PATTERN}</pattern>&ndash;&gt;-->
+    <!--&lt;!&ndash;            <charset>utf-8</charset>&ndash;&gt;-->
+    <!--        </encoder>-->
+    <!--    </appender>-->
+    <!-- 异步输出 -->
+    <!--    <appender name="REDIS_ASYNC" class="ch.qos.logback.classic.AsyncAppender">-->
+    <!--        <discardingThreshold>0</discardingThreshold>-->
+    <!--        <queueSize>256</queueSize>-->
+    <!--        <appender-ref ref="REDIS"/>-->
+    <!--    </appender>-->
+    <!-- 日志记录器，日期滚动记录 -->
+<!--    <appender name="FILE_OPERATION" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+
+<!--        &lt;!&ndash; 正在记录的日志文件的路径及文件名 &ndash;&gt;-->
+<!--        <file>${LOG_PATH}/${APP_NAME}-operation.log</file>-->
+
+<!--        &lt;!&ndash; 日志记录器的滚动策略，按日期，按大小记录 &ndash;&gt;-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${LOG_PATH}/operation/${APP_NAME}-operation.%d{yyyyMMdd}.gz</fileNamePattern>-->
+<!--            &lt;!&ndash;<maxFileSize>1024MB</maxFileSize>&ndash;&gt;-->
+<!--            <maxHistory>7</maxHistory>-->
+<!--            &lt;!&ndash;<totalSizeCap>8GB</totalSizeCap>&ndash;&gt;-->
+<!--        </rollingPolicy>-->
+<!--&lt;!&ndash;        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">&ndash;&gt;-->
+
+<!--&lt;!&ndash;            &lt;!&ndash; 归档的日志文件的路径，%d{yyyy-MM-dd}指定日期格式，%i指定索引 &ndash;&gt;&ndash;&gt;-->
+<!--&lt;!&ndash;            <fileNamePattern>${LOG_PATH}/operation/${APP_NAME}-operation-%d{yyyy-MM-dd}.%i.log</fileNamePattern>&ndash;&gt;-->
+
+<!--&lt;!&ndash;            &lt;!&ndash; 除按日志记录之外，还配置了日志文件不能超过10M，若超过10M，日志文件会以索引0开始，&ndash;&gt;-->
+<!--&lt;!&ndash;            命名日志文件，例如log-operation-2013-12-21.0.log &ndash;&gt;&ndash;&gt;-->
+<!--&lt;!&ndash;            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">&ndash;&gt;-->
+<!--&lt;!&ndash;                <maxFileSize>10MB</maxFileSize>&ndash;&gt;-->
+<!--&lt;!&ndash;            </timeBasedFileNamingAndTriggeringPolicy>&ndash;&gt;-->
+<!--&lt;!&ndash;        </rollingPolicy>&ndash;&gt;-->
+
+<!--        &lt;!&ndash; 追加方式记录日志 &ndash;&gt;-->
+<!--        <append>true</append>-->
+
+<!--        &lt;!&ndash; 日志文件的格式 &ndash;&gt;-->
+<!--        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">-->
+<!--            <pattern>${FILE_LOG_PATTERN}</pattern>-->
+<!--            <charset>utf-8</charset>-->
+<!--        </encoder>-->
+
+<!--        &lt;!&ndash;         此日志文件按配置级别记录 &ndash;&gt;-->
+<!--        <filter class="com.cubigdata.expos.framework.log.filter.LogPatternFilter">-->
+<!--            <logPattern>com.cubigdata.expos.framework.operation.multicast.listener.OperationLogEventListener-->
+<!--            </logPattern>-->
+<!--            <level>${LOG_LEVEL}</level>-->
+<!--            <OnMatch>ACCEPT</OnMatch>-->
+<!--            <OnMismatch>DENY</OnMismatch>-->
+<!--        </filter>-->
+<!--    </appender>-->
+
+    <!-- SQL日志记录器，日期滚动记录 -->
+<!--    <appender name="FILE_SQL" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+
+<!--        &lt;!&ndash; 正在记录的日志文件的路径及文件名 &ndash;&gt;-->
+<!--        <file>${LOG_PATH}/${APP_NAME}-sql.log</file>-->
+
+<!--        &lt;!&ndash; 日志记录器的滚动策略，按日期，按大小记录 &ndash;&gt;-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${LOG_PATH}/sql/${APP_NAME}-sql.%d{yyyyMMdd}.gz</fileNamePattern>-->
+<!--            &lt;!&ndash;<maxFileSize>1024MB</maxFileSize>&ndash;&gt;-->
+<!--            <maxHistory>7</maxHistory>-->
+<!--            &lt;!&ndash;<totalSizeCap>8GB</totalSizeCap>&ndash;&gt;-->
+<!--        </rollingPolicy>-->
+<!--&lt;!&ndash;        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">&ndash;&gt;-->
+
+<!--&lt;!&ndash;            &lt;!&ndash; 归档的日志文件的路径，%d{yyyy-MM-dd}指定日期格式，%i指定索引 &ndash;&gt;&ndash;&gt;-->
+<!--&lt;!&ndash;            &lt;!&ndash;            <fileNamePattern>${LOG_PATH}/sql/${APP_NAME}-sql-%d{yyyy-MM-dd}.%i.log</fileNamePattern>&ndash;&gt;&ndash;&gt;-->
+<!--&lt;!&ndash;            <fileNamePattern>${LOG_PATH}/sql/${APP_NAME}-sql-%d{yyyy-MM-dd}.log</fileNamePattern>&ndash;&gt;-->
+
+<!--&lt;!&ndash;            &lt;!&ndash; 除按日志记录之外，还配置了日志文件不能超过10M，若超过10M，日志文件会以索引0开始，&ndash;&gt;-->
+<!--&lt;!&ndash;            命名日志文件，例如log-error-2013-12-21.0.log &ndash;&gt;&ndash;&gt;-->
+<!--&lt;!&ndash;            &lt;!&ndash;            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">&ndash;&gt;&ndash;&gt;-->
+<!--&lt;!&ndash;            &lt;!&ndash;                <maxFileSize>10MB</maxFileSize>&ndash;&gt;&ndash;&gt;-->
+<!--&lt;!&ndash;            &lt;!&ndash;            </timeBasedFileNamingAndTriggeringPolicy>&ndash;&gt;&ndash;&gt;-->
+<!--&lt;!&ndash;        </rollingPolicy>&ndash;&gt;-->
+
+<!--        &lt;!&ndash; 追加方式记录日志 &ndash;&gt;-->
+<!--        <append>true</append>-->
+
+<!--        &lt;!&ndash; 日志文件的格式 &ndash;&gt;-->
+<!--        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">-->
+<!--            <pattern>${FILE_LOG_PATTERN}</pattern>-->
+<!--            <charset>utf-8</charset>-->
+<!--        </encoder>-->
+
+<!--        &lt;!&ndash; 此日志文件按配置级别记录 &ndash;&gt;-->
+<!--        <filter class="com.cubigdata.expos.framework.log.filter.LogPatternFilter">-->
+<!--            <logPattern>com.cubigdata.*.*Mapper.*||com.cubigdata.*.*Dao.*</logPattern>-->
+<!--            <level>${LOG_LEVEL}</level>-->
+<!--            <OnMatch>ACCEPT</OnMatch>-->
+<!--            <OnMismatch>DENY</OnMismatch>-->
+<!--        </filter>-->
+<!--    </appender>-->
+
+
+    <appender name="logstash" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <append>true</append>
+        <file>${LOG_PATH}/${APP_NAME}-logstash.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${APP_NAME}-logstash.%d{yyyyMMdd}.gz</fileNamePattern>
+            <!--<maxFileSize>1024MB</maxFileSize>-->
+            <maxHistory>7</maxHistory>
+            <!--<totalSizeCap>8GB</totalSizeCap>-->
+        </rollingPolicy>
+<!--        <encoder>-->
+<!--            <pattern>${CONSOLE_LOG_PATTERN}</pattern>-->
+<!--            <charset>utf-8</charset>-->
+<!--        </encoder>-->
+        <!-- logstash encoder配置-->
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <jsonFactoryDecorator class="net.logstash.logback.decorate.CharacterEscapesJsonFactoryDecorator">
+                <escape>
+                    <targetCharacterCode>10</targetCharacterCode>
+                    <escapeSequence>\u2028</escapeSequence>
+                </escape>
+            </jsonFactoryDecorator>
+            <providers>
+                <timestamp>
+                    <timeZone>UTC</timeZone>
+                </timestamp>
+                <!-- exception 50行异常栈信息转存储到es
+                         traceId 链路调用标识
+                         span 调用层级关系
+                     -->
+                <pattern>
+                    <pattern>
+                        {
+                        "ip": "${APP_IP}",
+                        "app": "${APP_NAME}",
+                        "TID": "%X{TID}",
+                        "BIZ_ID": "%X{BIZ_ID}",
+                        "level": "%level",
+                        "trace": "%X{X-B3-TraceId:-}",
+                        "span": "%X{X-B3-SpanId:-}",
+                        "parent": "%X{X-B3-ParentSpanId:-}",
+                        "pid": "${PID:-}",
+                        "thread": "%thread",
+                        "class": "%logger{40}",
+                        "message": "%message",
+                        "stack_trace": "%exception{50}"
+                        }
+                    </pattern>
+                </pattern>
+            </providers>
+        </encoder>
+    </appender>
+    <!-- 异步输出 -->
+    <appender name="LOGSTASH_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+        <discardingThreshold>0</discardingThreshold>
+        <queueSize>256</queueSize>
+        <appender-ref ref="logstash"/>
+    </appender>
+
+    <!--    <appender name="requestlogfile" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+    <!--        <append>true</append>-->
+    <!--        <file>/opt/app/logs/requestlog.log</file>-->
+    <!--        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">-->
+    <!--            <fileNamePattern>/opt/app/logs/requestlog.%d{yyyyMMdd}.log</fileNamePattern>-->
+    <!--        </rollingPolicy>-->
+    <!--        <encoder>-->
+    <!--            <pattern>${CONSOLE_LOG_PATTERN}</pattern>-->
+    <!--            <charset>utf-8</charset>-->
+    <!--        </encoder>-->
+    <!--        <encoder class="net.logstash.logback.encoder.LogstashEncoder">-->
+    <!--            <includeMdcKeyName>ip</includeMdcKeyName>-->
+    <!--            <includeMdcKeyName>uri</includeMdcKeyName>-->
+    <!--            <includeMdcKeyName>reqsvr</includeMdcKeyName>-->
+    <!--            <includeMdcKeyName>method</includeMdcKeyName>-->
+    <!--            <includeMdcKeyName>param</includeMdcKeyName>-->
+    <!--            <includeMdcKeyName>podenv</includeMdcKeyName>-->
+    <!--            <includeMdcKeyName>code</includeMdcKeyName>-->
+    <!--            <includeMdcKeyName>cost</includeMdcKeyName>-->
+    <!--            <includeMdcKeyName>X-B3-TraceId</includeMdcKeyName>-->
+    <!--            <includeMdcKeyName>X-B3-SpanId</includeMdcKeyName>-->
+    <!--            <includeMdcKeyName>parentId</includeMdcKeyName>-->
+    <!--            <includeMdcKeyName>X-B3-ParentSpanId</includeMdcKeyName>-->
+    <!--        </encoder>-->
+    <!--    </appender>-->
+    <!--    &lt;!&ndash; 异步输出http request请求 &ndash;&gt;-->
+    <!--    <appender name="REQASYNC" class="ch.qos.logback.classic.AsyncAppender">-->
+    <!--        <discardingThreshold>0</discardingThreshold>-->
+    <!--        <queueSize>256</queueSize>-->
+    <!--        <appender-ref ref="requestlogfile"/>-->
+    <!--    </appender>-->
+
+    <!-- ********************************************************************************************** -->
+    <!-- **** 放到服务器上不管在什么环境都只在文件记录日志，控制台（catalina.out）打印logback捕获不到的日志 **** -->
+    <!-- ********************************************************************************************** -->
+
+    <!--记录到文件时，记录两类一类是error日志，一个是所有日志-->
+    <root level="${LOG_LEVEL}">
+        <appender-ref ref="STDOUT"/>
+        <if condition="${LOGSTASH_ENABLE}">
+            <then>
+                <appender-ref ref="LOGSTASH_ASYNC"/>
+            </then>
+        </if>
+<!--        <if condition="${LOGOPERATION_ENABLE}">-->
+<!--            <then>-->
+<!--                <appender-ref ref="FILE_OPERATION"/>-->
+<!--            </then>-->
+<!--        </if>-->
+        <appender-ref ref="FILE_ERROR"/>
+        <appender-ref ref="ALL_ASYNC"/>
+<!--        <appender-ref ref="FILE_OPERATION"/>-->
+<!--        <appender-ref ref="FILE_SQL"/>-->
+<!--        <if condition="${LOG_ENABLE}">-->
+<!--            <then>-->
+<!--                <if condition='property("LOG_TYPE").equals("file")'>-->
+<!--                    <then>-->
+<!--                        <appender-ref ref="FILE_ERROR"/>-->
+<!--                        <appender-ref ref="ALL_ASYNC"/>-->
+<!--                        <appender-ref ref="FILE_OPERATION"/>-->
+<!--                        <appender-ref ref="FILE_SQL"/>-->
+<!--                    </then>-->
+<!--                </if>-->
+<!--                <if condition='property("LOG_TYPE").equals("redis")'>-->
+<!--                    <then>-->
+<!--                        &lt;!&ndash;                        <appender-ref ref="REDIS_ASYNC"/>&ndash;&gt;-->
+<!--                    </then>-->
+<!--                </if>-->
+<!--            </then>-->
+<!--        </if>-->
+    </root>
+    <logger name="org.mybatis">
+        <level value="WARN"/>
+    </logger>
+    <logger name="org.apache.ibatis">
+        <level value="WARN"/>
+    </logger>
+    <logger name="com.baomidou.mybatisplus.core">
+        <level value="info"/>
+    </logger>
+    <logger name="org.springframework">
+        <level value="info"/>
+    </logger>
+    <logger name="org.apache.dubbo">
+        <level value="info"/>
+    </logger>
+    <logger name="springfox.documentation">
+        <level value="OFF"/>
+    </logger>
+    <logger name="Validator">
+        <level value="OFF"/>
+    </logger>
+    <logger name="springfox.bean">
+        <level value="error"/>
+    </logger>
+    <logger name="liquibase">
+        <level value="warn"/>
+    </logger>
+    <logger name="com.alibaba.spring">
+        <level value="warn"/>
+    </logger>
+    <logger name="io.netty">
+        <level value="warn"/>
+    </logger>
+    <logger name="io.lettuce">
+        <level value="warn"/>
+    </logger>
+    <logger name="com.zaxxer.hikari">
+        <level value="info"/>
+    </logger>
+    <logger name="com.cubigdata.expos.security.core.utils.TokenResolver">
+        <level value="info"/>
+    </logger>
+    <logger name="com.alibaba.nacos">
+        <level value="ERROR"/>
+    </logger>
+    <logger name="com.cubigdata.expos.framework.utils.sql">
+        <level value="info"/>
+    </logger>
+    <logger name="com.cubigdata.expos.framework.mybatis">
+        <level value="info"/>
+    </logger>
+    <logger name="org.hibernate.validator">
+        <level value="info"/>
+    </logger>
+    <logger name="org.flowable.engine.impl.interceptor">
+        <level value="info"/>
+    </logger>
+    <logger name="org.flowable.common.spring">
+        <level value="info"/>
+    </logger>
+<!--    <logger name="org.flowable.common.engine.impl">-->
+<!--        <level value="info"/>-->
+<!--    </logger>-->
+    <logger name="org.flowable.engine.impl.history">
+        <level value="info"/>
+    </logger>
+    <logger name="org.flowable.common.engine.impl.agenda">
+        <level value="info"/>
+    </logger>
+    <logger name="org.apache.http">
+        <level value="ERROR"/>
+    </logger>
+
+</included>

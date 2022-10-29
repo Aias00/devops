@@ -1,0 +1,80 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: expos-admin-bootstrap
+  namespace: dap-test-env
+  labels:
+    app: expos-admin-bootstrap
+  annotations:
+    deployment.kubernetes.io/revision: '22'
+    kubesphere.io/creator: admin
+    kubesphere.io/description: 测试环境系统管理
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: expos-admin-bootstrap
+  template:
+    metadata:
+      labels:
+        app: expos-admin-bootstrap
+    spec:
+      volumes:
+        - name: host-time
+          hostPath:
+            path: /etc/localtime
+            type: ''
+        - name: volume-conf
+          configMap:
+            name: dap-expos-conf
+            items:
+              - key: bootstrap-test.yml
+                path: bootstrap-test.yml
+            defaultMode: 420
+      containers:
+        - name: container-expos-admin
+          image: >-
+            $REGISTRY/$DOCKERHUB_NAMESPACE/$APP_NAME:$BRANCH_NAME-$BUILD_NUMBER
+          ports:
+            - name: http-9080
+              containerPort: 9080
+              protocol: TCP
+          env:
+            - name: envType
+              value: test
+          resources: {}
+          volumeMounts:
+            - name: host-time
+              readOnly: true
+              mountPath: /etc/localtime
+            - name: volume-conf
+              readOnly: true
+              mountPath: /opt/expos-admin-bootstrap/conf/bootstrap-test.yml
+              subPath: bootstrap-test.yml
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          imagePullPolicy: Always
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      serviceAccountName: default
+      serviceAccount: default
+      securityContext: {}
+      schedulerName: default-scheduler
+      hostAliases:
+        - ip: 10.191.22.162
+          hostnames:
+            - lf-319-186
+        - ip: 10.191.22.163
+          hostnames:
+            - lf-319-187
+        - ip: 10.191.22.164
+          hostnames:
+            - lf-319-189
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
