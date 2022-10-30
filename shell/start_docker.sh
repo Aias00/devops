@@ -45,7 +45,8 @@ start()
   echo 'pulling image'
   docker pull $IMAGE
   echo 'starting container'
-  docker run -d --name $APP_NAME -p $PORT:$PORT -e "envType="$PROFILES_ACTIVE --network expos ${IMAGE}
+  docker run -d --name $APP_NAME -p $PORT:$PORT -e $ENV -v $VOLUME --network expos ${IMAGE}
+  echo $APP_NAME 'started'
 }
 
 while getopts ":a:p:" opt
@@ -62,29 +63,43 @@ do
         exit 1;;
     esac
 done
-if [ -z "$APP_INDEX" -o -z "$PORT" ];then
+if [ -z "$APP_INDEX" ];then
   helpdoc
   exit 1
 elif [ "$APP_INDEX" = "1" -o "$APP_INDEX" = "shenyu-admin" ]; then
-  IMAGE=harbor.dap.local/prod/shenyu-admin:2.4.2-9
+  IMAGE=harbor.dap.local/prod/shenyu-admin:2.4.2-10
   APP_NAME=shenyu-admin
-  # PORT=9095
   PROFILES_ACTIVE=pre
+  ENV="SPRING_PROFILES_ACTIVE="$PROFILES_ACTIVE
+  if [ -z "$PORT" ]; then
+    PORT=9095
+  fi
 elif [ "$APP_INDEX" = "2" -o "$APP_INDEX" = "shenyu-bootstrap" ]; then
-  IMAGE=harbor.dap.local/prod/shenyu-bootstrap:2.4.2-9
+  IMAGE=harbor.dap.local/prod/shenyu-bootstrap:2.4.2-10
   APP_NAME=shenyu-bootstrap
-  # PORT=9195
   PROFILES_ACTIVE=pre
+  ENV="SPRING_PROFILES_ACTIVE="$PROFILES_ACTIVE
+  if [ -z "$PORT" ]; then
+    PORT=9195
+  fi
 elif [ "$APP_INDEX" = "3" -o "$APP_INDEX" = "expos-admin" ]; then
-  IMAGE=harbor.dap.local/prod/expos-admin:1.0.3-SNAPSHOT-6
+  IMAGE=harbor.dap.local/prod/expos-admin:1.0.3-SNAPSHOT-9
   APP_NAME=expos-admin
-  # PORT=9080
   PROFILES_ACTIVE=pre
+  ENV="envType="$PROFILES_ACTIVE
+  VOLUME=/var/run/expos-admin/logs:/opt/expos-admin-bootstrap/logs
+  if [ -z "$PORT" ]; then
+    PORT=9080
+  fi
 elif [ "$APP_INDEX" = "4" -o "$APP_INDEX" = "expos-workflow" ]; then
   IMAGE=harbor.dap.local/prod/expos-workflow:1.0.3-SNAPSHOT-3
   APP_NAME=expos-workflow
-  # PORT=9080
   PROFILES_ACTIVE=pre
+  ENV="envType="$PROFILES_ACTIVE
+  VOLUME=/var/run/expos-workflow/logs:/opt/workflow-bootstrap/logs
+  if [ -z "$PORT" ]; then
+    PORT=8081
+  fi
 fi
 
 removeExistContainer
