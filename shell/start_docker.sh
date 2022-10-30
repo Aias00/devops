@@ -71,14 +71,16 @@ elif [ "$APP_INDEX" = "1" -o "$APP_INDEX" = "shenyu-admin" ]; then
   APP_NAME=shenyu-admin
   PROFILES_ACTIVE=pre
   ENV="SPRING_PROFILES_ACTIVE="$PROFILES_ACTIVE
+  VOLUME=/var/run/$APP_NAME/logs:/opt/shenyu-admin/logs
   if [ -z "$PORT" ]; then
     PORT=9095
   fi
 elif [ "$APP_INDEX" = "2" -o "$APP_INDEX" = "shenyu-bootstrap" ]; then
-  IMAGE=harbor.dap.local/prod/shenyu-bootstrap:2.4.2-10
+  IMAGE=harbor.dap.local/prod/shenyu-bootstrap:2.4.2-12
   APP_NAME=shenyu-bootstrap
   PROFILES_ACTIVE=pre
   ENV="SPRING_PROFILES_ACTIVE="$PROFILES_ACTIVE
+  VOLUME=/var/run/$APP_NAME/logs:/opt/shenyu-bootstrap/logs
   if [ -z "$PORT" ]; then
     PORT=9195
   fi
@@ -87,7 +89,7 @@ elif [ "$APP_INDEX" = "3" -o "$APP_INDEX" = "expos-admin" ]; then
   APP_NAME=expos-admin
   PROFILES_ACTIVE=pre
   ENV="envType="$PROFILES_ACTIVE
-  VOLUME=/var/run/expos-admin/logs:/opt/expos-admin-bootstrap/logs
+  VOLUME=/var/run/$APP_NAME/logs:/opt/expos-admin-bootstrap/logs
   if [ -z "$PORT" ]; then
     PORT=9080
   fi
@@ -96,7 +98,7 @@ elif [ "$APP_INDEX" = "4" -o "$APP_INDEX" = "expos-workflow" ]; then
   APP_NAME=expos-workflow
   PROFILES_ACTIVE=pre
   ENV="envType="$PROFILES_ACTIVE
-  VOLUME=/var/run/expos-workflow/logs:/opt/workflow-bootstrap/logs
+  VOLUME=/var/run/$APP_NAME/logs:/opt/workflow-bootstrap/logs
   if [ -z "$PORT" ]; then
     PORT=8081
   fi
