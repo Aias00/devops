@@ -51,7 +51,7 @@ start()
   echo $APP_NAME 'started'
 }
 
-while getopts ":a:p:" opt
+while getopts ":a:p:m:" opt
 do
     case $opt in
         a)
