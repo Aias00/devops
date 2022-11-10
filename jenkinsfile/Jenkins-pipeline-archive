@@ -1,0 +1,129 @@
+pipeline {
+  agent {
+    node {
+      label 'maven'
+    }
+  }
+  stages {
+    stage('拉代码') {
+      agent none
+      steps {
+        container('maven') {
+          git(url: env.GIT_URL, credentialsId: env.GIT_CREDENTIAL_ID, branch: env.BRANCH_NAME, changelog: true, poll: false)
+          // maven项目版本号
+          script {
+            env.TIMESTAMP = sh(returnStdout: true, script: "echo -n `date '+%Y%m%d%H%M%S'`")
+            env.PROJECT_VERSION = sh(returnStdout: true, script: 'mvn help:evaluate -Dexpression=project.version -q -DforceStdout')
+            env.GIT_TAG = sh(returnStdout: true, script: 'echo -n "devops-${PROJECT_VERSION}-${TIMESTAMP}"')
+            env.IMAGE_NAME = "${REGISTRY}/${DOCKERHUB_NAMESPACE}/${APP_NAME}:${PROJECT_VERSION}-${TIMESTAMP}"
+          }
+        }
+      }
+    }
+
+    stage('打标签') {
+      agent none
+      // when {
+      // branch 'master'
+      // }
+      steps {
+        container('maven') {
+          // git tag
+          withCredentials([usernamePassword(credentialsId: env.GIT_CREDENTIAL_ID, passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+            sh """
+              git config --global user.email env.GIT_EMAIL
+              git config --global user.name ${GIT_USERNAME}
+              git tag -m 'kubesphere auto tag' -a ${GIT_TAG}
+              git push http://${GIT_CREDENTIAL_ID}:${GIT_PASSWORD}@${git} --tags
+          """
+          }
+        }
+      }
+    }
+
+    stage('maven编译') {
+      agent none
+      steps {
+        container('maven') {
+          sh '${MAVEN_COMMAND}'
+          archiveArtifacts artifacts: 'target/*.tar.gz', onlyIfSuccessful: false, fingerprint: true
+          script {
+            String archiveUrl = "http://10.244.12.9:39000/job/dap-testw9q26/job/expos-admin-test/${BUILD_NUMBER}/artifact/target/expos-admin-bootstrap.tar.gz"
+            sh """
+              curl -v -X POST -H "Content-type: application/json" -H "PRIVATE-TOKEN: $GIT_TOKEN" --data '{\"name\":\"New release\",\"tag_name\":\"${GIT_TAG}\",\"description\": \"Super nice release\", \"assets\":{\"links\":[{\"name\":\"tar.gz\",\"url\":\"$archiveUrl\"}]}}' http://10.126.138.28/api/v4/projects/2487/releases
+            """
+          }
+        }
+      }
+    }
+    stage('docker build') {
+      agent none
+      steps {
+        container('maven') {
+          sh 'docker build -f $DOCKER_FILE $DOCKER_PATH -t $IMAGE_NAME'
+        }
+      }
+    }
+
+    stage('docker push') {
+      agent none
+      steps {
+        container('maven') {
+          withCredentials([usernamePassword(credentialsId : env.DOCKERHUB_CREDENTIAL_ID ,passwordVariable : 'DOCKER_PASSWORD' ,usernameVariable : 'DOCKER_USERNAME' ,)]) {
+            sh 'echo "$DOCKER_PASSWORD" | docker login $REGISTRY -u "$DOCKER_USERNAME" --password-stdin'
+          }
+
+          sh 'docker push $IMAGE_NAME'
+        }
+      }
+    }
+
+    stage('push lastest') {
+      agent none
+      when {
+        branch 'master'
+      }
+      steps {
+        container('maven') {
+          sh 'docker tag  $IMAGE_NAME $REGISTRY/$DOCKERHUB_NAMESPACE/$APP_NAME:lastest'
+          sh 'docker push  $REGISTRY/$DOCKERHUB_NAMESPACE/$APP_NAME:lastest'
+        }
+      }
+    }
+
+    stage('部署测试环境') {
+      agent none
+      when {
+        environment name: 'publish', value: 'true'
+      }
+      steps {
+        container('maven') {
+          withCredentials([
+                                                kubeconfigFile(
+                                                        credentialsId: env.KUBECONFIG_CREDENTIAL_ID,
+                                                        variable: 'KUBECONFIG')
+                                                        ]) {
+            sh 'envsubst < $DEPLOY_FILE | kubectl apply -f -'
+                                                        }
+        }
+      }
+    }
+  }
+  environment {
+    GIT_CREDENTIAL_ID = 'liuhy25252'
+    GIT_EMAIL = 'liuhy25252@chinaunicom.cn'
+    GIT_TOKEN = '8Uv3SDkgMWjZ7mhC_g4U'
+    KUBECONFIG_CREDENTIAL_ID = 'kubeconfig-test'
+    DOCKERHUB_CREDENTIAL_ID = 'harbor-id'
+    REGISTRY = 'harbor.dap.local'
+    DOCKERHUB_NAMESPACE = 'dev'
+    GIT_URL = "http://${env.GIT}"
+    APP_NAME = 'expos-admin'
+    GIT = '10.126.138.28/ChinaUnicomBigData/MinistryOfTechnology/platform-development/projects/commoncompnent_group/basiccomponent_group/expos-admin-bootstrap'
+    BRANCH_NAME = 'project_udap_k8s'
+    DEPLOY_FILE = './deploy/deploy-test.yaml'
+    DOCKER_FILE = 'Dockerfile'
+    DOCKER_PATH = '.'
+    MAVEN_COMMAND = 'mvn clean install -DskipTests -U -Pthin-jar,release'
+  }
+}

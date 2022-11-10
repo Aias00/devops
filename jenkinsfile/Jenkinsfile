@@ -21,14 +21,12 @@ pipeline {
       steps {
         container('maven') {
         // 时间戳
-        script {
-            TIMESTAMP = sh(returnStdout: true, script: "echo `date '+%Y%m%d%H%M%S'`")
-        }
         // maven项目版本号
         script {
-            PROJECT_VERSION = sh(returnStdout: true, script: 'mvn help:evaluate -Dexpression=project.version -q -DforceStdout')
+            env.TIMESTAMP = sh(returnStdout: true, script: "echo `date '+%Y%m%d%H%M%S'`")
+            env.PROJECT_VERSION = sh(returnStdout: true, script: 'mvn help:evaluate -Dexpression=project.version -q -DforceStdout')
             GIT_TAG = "devops-${PROJECT_VERSION}-${TIMESTAMP}"
-            env.PROJECT_VERSION = "${PROJECT_VERSION}"
+            env.IMAGE_NAME = "${REGISTRY}/${DOCKERHUB_NAMESPACE}/${APP_NAME}:${PROJECT_VERSION}-${TIMESTAMP}"
         }
         // git tag
         withCredentials([usernamePassword(credentialsId: env.GIT_CREDENTIAL_ID, passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
@@ -44,16 +42,21 @@ pipeline {
       }
     }
 
-    stage('maven编译 && docker 构建') {
+    stage('maven编译') {
       agent none
       steps {
         container('maven') {
-          withCredentials([usernamePassword(credentialsId : env.DOCKERHUB_CREDENTIAL_ID ,passwordVariable : 'DOCKER_PASSWORD' ,usernameVariable : 'DOCKER_USERNAME' ,)]) {
-            sh 'echo "$DOCKER_PASSWORD" | docker login $REGISTRY -u "$DOCKER_USERNAME" --password-stdin'
-          }
-          sh 'mvn clean package -Ptest -DskipTests -Ddocker'
+          sh 'mvn clean install -DskipTests -U -Pthin-jar,release'
         }
+      }
+    }
 
+    stage('docker build') {
+      agent none
+      steps {
+        container('maven') {
+          sh 'docker build -f Dockerfile -t $IMAGE_NAME .'
+        }
       }
     }
 
@@ -64,8 +67,7 @@ pipeline {
           withCredentials([usernamePassword(credentialsId : env.DOCKERHUB_CREDENTIAL_ID ,passwordVariable : 'DOCKER_PASSWORD' ,usernameVariable : 'DOCKER_USERNAME' ,)]) {
             sh 'echo "$DOCKER_PASSWORD" | docker login $REGISTRY -u "$DOCKER_USERNAME" --password-stdin'
           }
-         sh 'docker tag $DOCKER_IMAGE $REGISTRY/$DOCKERHUB_NAMESPACE/$APP_NAME:$PROJECT_VERSION-$BUILD_NUMBER'
-         sh 'docker push $REGISTRY/$DOCKERHUB_NAMESPACE/$APP_NAME:$PROJECT_VERSION-$BUILD_NUMBER'
+         sh 'docker push $IMAGE_NAME'
         }
 
       }
@@ -85,6 +87,21 @@ pipeline {
               }
 
             }
+      }
+    }
+    stage('SSH Steps Rocks!') {
+      steps {
+          script {
+            def remote = [:]
+            remote.name = 'test'
+            remote.host = '10.191.23.122'
+            remote.allowAnyHosts = true
+            withCredentials([usernamePassword(credentialsId: 'prod-user', passwordVariable: 'password', usernameVariable: 'username')]) {
+            remote.user = "${username}"
+            remote.password = "${password}"
+            }
+            sshCommand remote: remote, command: "sh start_docker.sh -a ${APP_NAME} -m ${IMAGE_NAME}", sudo: true
+          }
       }
     }
     
