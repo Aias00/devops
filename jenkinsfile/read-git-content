@@ -1,0 +1,43 @@
+pipeline {
+  agent {
+    node {
+      label 'maven'
+    }
+
+  }
+  stages {
+
+    stage('maven编译') {
+      agent none
+      steps {
+        container('maven') {
+          script {
+            env.content = sh(returnStdout: true, script: 'curl -X GET -H "PRIVATE-TOKEN: 8Uv3SDkgMWjZ7mhC_g4U" http://10.126.138.28/api/v4/projects/3188/repository/files/README.md?ref=master')
+            def jsonObj = readJSON text: env.content
+            env.platform_version = sh(returnStdout: true, script: "echo ${jsonObj.content} | base64 -d | grep -v '# expos-platform-version' |grep 'platform.version' | sed 's/platform.version=//g'"
+            echo "${env.platform_version}"
+          }
+        }
+
+      }
+    }
+    
+  }
+  environment {
+    GIT_CREDENTIAL_ID = 'liuhy25252'
+    GIT_EMAIL = 'liuhy25252@chinaunicom.cn'
+    GIT_TOKEN = '8Uv3SDkgMWjZ7mhC_g4U'
+    KUBECONFIG_CREDENTIAL_ID = 'kubeconfig-test'
+    DOCKERHUB_CREDENTIAL_ID = 'harbor-id'
+    REGISTRY = 'harbor.dap.local'
+    DOCKERHUB_NAMESPACE = 'test'
+    GIT_URL = "http://${env.GIT}"
+    APP_NAME = 'expos-admin'
+    GIT = '10.126.138.28/ChinaUnicomBigData/MinistryOfTechnology/platform-development/projects/commoncompnent_group/basiccomponent_group/expos-admin-bootstrap'
+    BRANCH_NAME = 'test'
+    DEPLOY_FILE = './deploy/deploy-test.yaml'
+    DOCKER_FILE = 'Dockerfile'
+    DOCKER_PATH = '.'
+    MAVEN_COMMAND = 'mvn clean install -DskipTests -U -Pthin-jar,release'
+  }
+}
