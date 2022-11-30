@@ -1,0 +1,1 @@
+curl -v -X POST https://oapi.dingtalk.com/robot/send?access_token=25951c51d8277f2c98b3580d2dddfb85dd39537168fc8d845269610292186853 -H 'Content-Type: application/json' -d '{"msgtype": "text","text": {"content": "业务报警: 实时文件已超过10分钟未更新，需检查！"}}'

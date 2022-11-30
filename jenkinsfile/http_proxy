@@ -1,0 +1,29 @@
+
+
+pipeline {
+  agent {
+    node {
+      label 'maven'
+    }
+
+  }
+  stages {
+    stage('通知') {
+      steps {
+        container('maven') {
+          script {
+            sh """
+              curl -v -X POST -H "Content-type: application/json" --data '{\"msgtype\": \"markdown\", \"markdown\": {\"title\":\"流水线通知\",\"text\": \"### 流水线通知 \n - 任务名称: ${JOB_NAME} \n - 任务编号: ${BUILD_NUMBER} \n - 执行状态: SUCCESS \n - 查看详情: [流水线详情](${BUILD_URL}) \n\"}}' https://oapi.dingtalk.com/robot/send?access_token=${ding_token}
+            """
+          }
+        }
+      }
+    }
+
+  }
+  environment {
+    def http_proxy="http://10.126.138.71:3128"
+    def https_proxy="http://10.126.138.71:3128"
+    ding_token = "c1ab2c4586148152235bffcc715bd4faeb4daa721df1ec9fafe85b99679fccb3"
+  }
+}

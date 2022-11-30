@@ -1,0 +1,225 @@
+pipeline {
+  agent {
+    node {
+      label 'maven'
+    }
+
+  }
+  stages {
+    stage('拉代码') {
+      agent none
+      steps {
+        try{
+          container('maven') {
+          git(url: env.GIT_URL, credentialsId: env.GIT_CREDENTIAL_ID, branch: env.BRANCH_NAME, changelog: true, poll: false)
+          // maven项目版本号
+          script {
+            // env.TIMESTAMP = sh(returnStdout: true, script: "echo -n `date '+%Y%m%d%H%M%S'`")
+            env.TIMESTAMP = GetTimeStamp()
+            // env.PROJECT_VERSION = sh(returnStdout: true, script: 'mvn help:evaluate -Dexpression=project.version -q -DforceStdout')
+            env.PROJECT_VERSION = GetMavenProjectVersion()
+            env.GIT_TAG = sh(returnStdout: true, script: 'echo -n "devops-${PROJECT_VERSION}-${TIMESTAMP}"')
+            // env.readme = sh(returnStdout: true, script: 'curl -X GET -H "PRIVATE-TOKEN: 8Uv3SDkgMWjZ7mhC_g4U" http://10.126.138.28/api/v4/projects/3188/repository/files/README.md?ref=master')
+            // def jsonObj = readJSON text: env.readme
+            // env.temp = sh(returnStdout: true, script: "echo ${jsonObj.content} | base64 -d | grep -v '# expos-platform-version' |grep 'platform.version' | sed 's/platform.version=//g'")
+            env.platform_version = GetPlatformVersion()
+            // echo "${env.platform_version}"
+            env.IMAGE_NAME = "${REGISTRY}/${DOCKERHUB_NAMESPACE}/${env.platform_version}/${APP_NAME}:${PROJECT_VERSION}-${TIMESTAMP}"
+          }
+        }
+        }
+      }
+    }
+
+    stage('打标签') {
+      agent none
+      when {
+         branch 'master'
+      }
+      steps {
+        container('maven') {
+        // git tag
+        withCredentials([usernamePassword(credentialsId: env.GIT_CREDENTIAL_ID, passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+        sh """
+              git config --global user.email env.GIT_EMAIL
+              git config --global user.name ${GIT_USERNAME}
+              git tag -m 'kubesphere auto tag' -a ${GIT_TAG}
+              git push http://${GIT_CREDENTIAL_ID}:${GIT_PASSWORD}@${git} --tags
+          """
+        }
+        }
+        // GitTag(env.GIT_CREDENTIAL_ID, ${git}, ${GIT_TAG})
+      }
+    }
+
+    stage('maven编译') {
+      agent none
+      steps {
+        container('maven') {
+          sh '${MAVEN_COMMAND}'
+          minio bucket:'release', credentialsId: 'minio-release', excludes: '', host: 'http://dap-minio-release.dap-demo-env:9000/', includes: 'target/expos-admin-bootstrap.tar.gz', targetFolder: '$GIT_TAG'
+          // String archiveUrl = SaveMinio()
+          script {
+            String archiveUrl = "${MINIO_HOST}/${MINIO_BUCKET}/${GIT_TAG}/expos-admin-bootstrap.tar.gz"
+            sh """
+              curl -v -X POST -H "Content-type: application/json" -H "PRIVATE-TOKEN: $GIT_TOKEN" --data '{\"name\":\"New release\",\"tag_name\":\"${GIT_TAG}\",\"description\": \"Super nice release\", \"assets\":{\"links\":[{\"name\":\"tar.gz\",\"url\":\"$archiveUrl\"}]}}' http://10.126.138.28/api/v4/projects/2487/releases
+            """
+          }
+        }
+
+      }
+    }
+    stage('docker build') {
+      agent none
+      steps {
+        container('maven') {
+          sh 'docker build -f $DOCKER_FILE $DOCKER_PATH -t $IMAGE_NAME'
+        }
+
+      }
+    }
+
+    stage('docker push') {
+      agent none
+      steps {
+        container('maven') {
+          withCredentials([usernamePassword(credentialsId : env.DOCKERHUB_CREDENTIAL_ID ,passwordVariable : 'DOCKER_PASSWORD' ,usernameVariable : 'DOCKER_USERNAME' ,)]) {
+            sh 'echo "$DOCKER_PASSWORD" | docker login $REGISTRY -u "$DOCKER_USERNAME" --password-stdin'
+          }
+
+          sh 'docker push $IMAGE_NAME'
+        }
+
+      }
+    }
+
+    stage('push lastest') {
+      agent none
+      when {
+        branch 'master'
+      }
+      steps {
+        container('maven') {
+          sh 'docker tag  $IMAGE_NAME $REGISTRY/$DOCKERHUB_NAMESPACE/$APP_NAME:lastest'
+          sh 'docker push  $REGISTRY/$DOCKERHUB_NAMESPACE/$APP_NAME:lastest'
+        }
+
+      }
+    }
+
+    stage('部署测试环境') {
+      agent none
+      // when {
+        // environment name: 'publish', value: 'true'
+      // }
+      steps {
+        container('maven') {
+          withCredentials([
+              kubeconfigFile(
+                      credentialsId: env.KUBECONFIG_CREDENTIAL_ID,
+                      variable: 'KUBECONFIG')
+                      ]) {
+                  sh 'envsubst < $DEPLOY_FILE | kubectl apply -f -'
+              }
+
+            }
+
+          }
+      }
+
+    stage('发送成功通知') {
+      agent none
+      steps {
+        SendDing("${JOB_NAME}", "${BUILD_NUMBER}", "SUCCESS","${BUILD_URL}")
+        // echo "success"
+      }
+    }
+  }
+  environment {
+    def http_proxy="http://10.126.138.71:3128"
+    def https_proxy="http://10.126.138.71:3128"
+    def no_proxy="lb.kubesphere.local,127.0.0.1,10.244.12.9,10.244.12.11,10.244.12.12,10.233.0.1"
+    ding_token = "c1ab2c4586148152235bffcc715bd4faeb4daa721df1ec9fafe85b99679fccb3"
+    GIT_CREDENTIAL_ID = 'liuhy25252'
+    GIT_EMAIL = 'liuhy25252@chinaunicom.cn'
+    GIT_TOKEN = '8Uv3SDkgMWjZ7mhC_g4U'
+    KUBECONFIG_CREDENTIAL_ID = 'kubeconfig-test'
+    DOCKERHUB_CREDENTIAL_ID = 'harbor-id'
+    REGISTRY = 'harbor.dap.local'
+    DOCKERHUB_NAMESPACE = 'test'
+    GIT_URL = "http://${env.GIT}"
+    APP_NAME = 'expos-admin'
+    GIT = '10.126.138.28/ChinaUnicomBigData/MinistryOfTechnology/platform-development/projects/commoncompnent_group/basiccomponent_group/expos-admin-bootstrap'
+    BRANCH_NAME = 'test'
+    DEPLOY_FILE = './deploy/deploy-test.yaml'
+    DOCKER_FILE = 'Dockerfile'
+    DOCKER_PATH = '.'
+    MAVEN_COMMAND = 'mvn clean install -DskipTests -U -Pthin-jar,release'
+    MINIO_UPLOAD_HOST = 'http://dap-minio-release.dap-demo-env:9000/'
+    MINIO_HOST = 'http://10.244.12.9:39019'
+    MINIO_BUCKET = 'release'
+  }
+}
+
+// 创建函数
+def GetTimeStamp(){
+  return sh(returnStdout: true, script: "echo -n `date '+%Y%m%d%H%M%S'`")
+}
+
+def SendDing(JOB_NAME, BUILD_NUMBER, STATUS, BUILD_URL) {
+    container('maven') {
+      sh """
+        curl -v -X POST -H "Content-type: application/json" --data '{\"msgtype\": \"markdown\", \"markdown\": {\"title\":\"流水线通知\",\"text\": \"### 流水线通知 \n - 任务名称: ${JOB_NAME} \n - 任务编号: ${BUILD_NUMBER} \n - 执行状态: ${STATUS} \n - 查看详情: [流水线详情](${BUILD_URL}) \n\"}}' https://oapi.dingtalk.com/robot/send?access_token=${ding_token}
+        """
+    }
+}
+
+def GetMavenProjectVersion(){
+  container('maven') {
+    return sh(returnStdout: true, script: 'mvn help:evaluate -Dexpression=project.version -q -DforceStdout')
+  }
+}
+
+def GetPlatformVersion(){
+  container('maven') {
+    def readme = sh(returnStdout: true, script: 'curl -X GET -H "PRIVATE-TOKEN: 8Uv3SDkgMWjZ7mhC_g4U" http://10.126.138.28/api/v4/projects/3188/repository/files/README.md?ref=master')
+    def jsonObj = readJSON text: readme
+    def temp = sh(returnStdout: true, script: "echo ${jsonObj.content} | base64 -d | grep -v '# expos-platform-version' |grep 'platform.version' | sed 's/platform.version=//g'")
+    echo "${temp}"
+    platform_version = sh(returnStdout: true, script: "echo -n ${temp}")
+    echo "${platform_version}"
+    return platform_version
+  }
+}
+
+def GitTag(credentialsId,git,tag){
+  container('maven') {
+    // git tag
+    withCredentials([usernamePassword(credentialsId: ${credentialsId}, passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+    sh """
+          git config --global user.email env.GIT_EMAIL
+          git config --global user.name ${GIT_USERNAME}
+          git tag -m 'kubesphere auto tag' -a ${tag}
+          git push http://${GIT_CREDENTIAL_ID}:${GIT_PASSWORD}@${git} --tags
+      """
+    }
+  }
+}
+
+// def GitRelease(){
+//   container('maven') {
+//     script {
+//       String archiveUrl = "${MINIO_HOST}/${MINIO_BUCKET}/${GIT_TAG}/expos-admin-bootstrap.tar.gz"
+//       sh """
+//         curl -v -X POST -H "Content-type: application/json" -H "PRIVATE-TOKEN: $GIT_TOKEN" --data '{\"name\":\"New release\",\"tag_name\":\"${GIT_TAG}\",\"description\": \"Super nice release\", \"assets\":{\"links\":[{\"name\":\"tar.gz\",\"url\":\"$archiveUrl\"}]}}' http://10.126.138.28/api/v4/projects/2487/releases
+//       """
+//     }
+//   }
+// }
+
+// def SaveMinio(){
+//   container('maven') {
+//     minio bucket:'release', credentialsId: 'minio-release', excludes: '', host: 'http://dap-minio-release.dap-demo-env:9000/', includes: 'target/expos-admin-bootstrap.tar.gz', targetFolder: '$GIT_TAG'
+//     return "${MINIO_HOST}/${MINIO_BUCKET}/${GIT_TAG}/expos-admin-bootstrap.tar.gz"
+//   }
+// }
