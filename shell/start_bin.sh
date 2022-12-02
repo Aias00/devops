@@ -4,39 +4,16 @@ helpdoc(){
     cat <<EOF
 Usage:
 
-    $0 -a <app> -p <port>
+    $0 -a <app> 
 
 参数说明:
 
-    -a 要启动的服务
-
-      1 或者 shenyu-admin:       shenyu-admin（网关管理）
-      2 或者 shenyu-bootstrap:   shenyu-bootstrap（网关服务）
-      3 或者 expos-admin:        expos-admin（系统管理）
-      4 或者 expos-workflow:     expos-workflow（工单管理）
-
-    -p 容器暴露的端口号
-
+    -a 要启动的服务, 列表如下:
+      shenyu-admin:       shenyu-admin（网关管理）
+      shenyu-bootstrap:   shenyu-bootstrap（网关服务）
+      expos-admin:        expos-admin（系统管理）
+      expos-workflow:     expos-workflow（工单管理）
 EOF
-}
-# 创建docker网络
-createNetwork()
-{
-  network=`docker network ls | grep expos`
-if [[ -z $network ]]; then
-  docker network create expos
-  echo 'created network expos'
-fi
-}
-# 移除之前的容器
-removeExistContainer()
-{
-  running_container=`docker ps -a -q -f "name=^${APP_NAME}$" | xargs -I {} docker port {}`
-  stopped_container=`docker inspect ${APP_NAME} 2> /dev/null | grep ${APP_NAME} `
-if [[ -n $running_container || -n $stopped_container ]]; then
-  echo $APP_NAME 'container exist, remove it'
-  docker rm -f $APP_NAME
-fi
 }
 # 启动容器
 start()
@@ -49,14 +26,11 @@ start()
   echo $APP_NAME 'started'
 }
 
-while getopts ":a:p:" opt
+while getopts ":a:" opt
 do
     case $opt in
         a)
         APP_INDEX=`echo $OPTARG`
-        ;;
-        p)
-        PORT=`echo $OPTARG`
         ;;
         ?)
         echo "未知参数"
@@ -102,8 +76,9 @@ elif [ "$APP_INDEX" = "4" -o "$APP_INDEX" = "expos-workflow" ]; then
   if [ -z "$PORT" ]; then
     PORT=8081
   fi
+else
+  helpdoc
+  exit 1
 fi
 
-removeExistContainer
-createNetwork
 start

@@ -1,0 +1,93 @@
+FROM kubespheredev/builder-base:v3.1.0
+# node
+ENV NODE_VERSION 16.15.0
+ENV PYTHON_VERSION=3.7.11
+
+RUN ARCH=x64 \
+    # gpg keys listed at https://github.com/nodejs/node#release-keys
+    && set -ex \
+    && for key in \
+    4ED778F539E3634C779C87C6D7062848A1AB005C \
+    141F07595B7B3FFE74309A937405533BE57C7D57 \
+    74F12602B6F1C4E913FAA37AD3A89613643B6201 \
+    61FC681DFB92A079F1685E77973F295594EC4689 \
+    8FCCA13FEF1D0C2E91008E09770F7A9A5AE15600 \
+    C4F0DFFF4E8C1A8236409D08E73BC641CC11F4C8 \
+    890C08DB8579162FEE0DF9DB8BEAB4DFCF555EF4 \
+    C82FA3AE1CBEDC6BE46B9360C43CEC45C17AB93C \
+    108F52B48DB57BB0CC439B2997B01419BD92F80A \
+    ; do \
+    gpg --batch --keyserver sks.srv.dumain.com --recv-keys "$key"; \
+    done \
+    && curl -fsSLO --compressed "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-$ARCH.tar.xz" \
+    && curl -fsSLO https://nodejs.org/dist/v$NODE_VERSION/SHASUMS256.txt \
+    && grep " node-v$NODE_VERSION-linux-$ARCH.tar.xz\$" SHASUMS256.txt | sha256sum -c - \
+    && tar -xJf "node-v$NODE_VERSION-linux-$ARCH.tar.xz" -C /usr/local --strip-components=1 --no-same-owner \
+    && rm "node-v$NODE_VERSION-linux-$ARCH.tar.xz" SHASUMS256.txt \
+    && ln -s /usr/local/bin/node /usr/local/bin/nodejs \
+    && yum install -y nodejs gcc-c++ make bzip2 GConf2 gtk2 chromedriver chromium xorg-x11-server-Xvfb
+
+RUN npm -g config set user root
+RUN npm i -g watch-cli vsce typescript
+
+# Yarn
+ENV YARN_VERSION 1.22.19
+RUN curl -f -L -o /tmp/yarn.tgz https://github.com/yarnpkg/yarn/releases/download/v${YARN_VERSION}/yarn-v${YARN_VERSION}.tar.gz && \
+    tar xf /tmp/yarn.tgz && \
+    mv yarn-v${YARN_VERSION} /opt/yarn && \
+    ln -s /opt/yarn/bin/yarn /usr/local/bin/yarn && \
+    yarn config set cache-folder /root/.yarn && \
+    rm -rf /tmp/yarn.tgz
+# python
+RUN yum -y install bzip2-devel libffi-devel libsqlite3x-devel && \
+    curl -fSL https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz -o /usr/src/Python-${PYTHON_VERSION}.tgz && \
+    tar xzf /usr/src/Python-${PYTHON_VERSION}.tgz -C /usr/src/ --no-same-owner && \
+    cd /usr/src/Python-${PYTHON_VERSION} && \
+    ./configure --enable-optimizations --with-ensurepip=install --enable-loadable-sqlite-extensions && \
+    make altinstall -j 2 && \
+    cd ../ && \
+    rm -rf /usr/src/Python-${PYTHON_VERSION}.tgz /usr/src/Python-${PYTHON_VERSION} && \
+    ln -fs /usr/local/bin/python3.7 /usr/bin/python && \
+    ln -fs /usr/local/bin/python3.7 /usr/bin/python3 && \
+    ln -fs /usr/local/bin/pip3.7 /usr/bin/pip && \
+    python3 -m pip install --upgrade pip && \
+    sed -e 's|^#!/usr/bin/python|#!/usr/bin/python2.7|g' -i.bak /usr/bin/yum && \
+    sed -e 's|^#! /usr/bin/python|#! /usr/bin/python2.7|g' -i.bak /usr/libexec/urlgrabber-ext-down && \
+    yum -y remove bzip2-devel libffi-devel libsqlite3x-devel && \
+    yum -y clean all
+
+# gmp
+RUN curl -f -L -o /tmp/gmp-5.0.1.tar.gz https://mirrors.aliyun.com/gnu/gmp/gmp-5.0.1.tar.gz && \
+    tar -vxf /tmp/gmp-5.0.1.tar.gz && \
+    cd gmp-5.0.1 && ./configure --prefix=/usr/local/gmp-5.0.1 && make && make install &&\
+    rm -rf /tmp/gmp-5.0.1.tar.gz  && rm -rf gmp-5.0.1
+
+# mpfr
+RUN curl -f -L -o /tmp/mpfr-3.1.5.tar.gz https://mirrors.aliyun.com/gnu/mpfr/mpfr-3.1.5.tar.gz && \
+    tar -vxf /tmp/mpfr-3.1.5.tar.gz && \
+    cd mpfr-3.1.5 && ./configure --prefix=/usr/local/mpfr-3.1.5 --with-gmp=/usr/local/gmp-5.0.1 && make && make install &&\
+    rm -rf /tmp/mpfr-3.1.5.tar.gz && rm -rf mpfr-3.1.5
+
+# mpc
+RUN curl -f -L -o /tmp/mpc-1.0.1.tar.gz http://mirrors.aliyun.com/gnu/mpc/mpc-1.0.1.tar.gz && \
+    tar -vxf /tmp/mpc-1.0.1.tar.gz && \
+    cd mpc-1.0.1 && ./configure --prefix=/usr/local/mpc-1.0.1 --with-gmp=/usr/local/gmp-5.0.1 --with-mpfr=/usr/local/mpfr-3.1.5 && make && make install &&\
+    rm -rf /tmp/mpc-1.0.1.tar.gz && rm -rf mpc-1.0.1
+
+# gcc
+RUN curl -f -L -o /tmp/gcc-10.1.0.tar.gz https://mirrors.aliyun.com/gnu/gcc/gcc-10.1.0/gcc-10.1.0.tar.gz && \
+    tar -vxf /tmp/gcc-10.1.0.tar.gz && \
+    mkdir -p gcc-10.1.0/build && cd gcc-10.1.0/build && ../configure --prefix=/usr/local/gcc-10.1.0/ --enable-checking=release --enable-languages=c,c++ --disable-multilib --with-gmp=/usr/local/gmp-5.0.1 --with-mpfr=/usr/local/mpfr-3.1.5 --with-mpc=/usr/local/mpc-1.0.1 && make -j8 && make install &&\
+    rm -rf /tmp/gcc-10.1.0.tar.gz && rm -rf gcc-10.1.0
+
+RUN mv /usr/bin/gcc /usr/bin/gcc485 &&\
+    mv /usr/bin/g++ /usr/bin/g++485 &&\
+    mv /usr/bin/c++ /usr/bin/c++485 &&\
+    mv /usr/bin/cc /usr/bin/cc485 &&\
+    ln -s /usr/local/gcc-10.1.0/bin/gcc /usr/bin/gcc &&\
+    ln -s /usr/local/gcc-10.1.0/bin/g++ /usr/bin/g++ &&\
+    ln -s /usr/local/gcc-10.1.0/bin/c++ /usr/bin/c++ &&\
+    ln -s /usr/local/gcc-10.1.0/bin/gcc /usr/bin/cc &&\
+    mv /usr/lib64/libstdc++.so.6 /usr/lib64/libstdc++.so.6.bak &&\
+    ln -s /usr/local/gcc-10.1.0/lib64/libstdc++.so.6.0.28 /usr/lib64/libstdc++.so.6
+
