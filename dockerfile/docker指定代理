@@ -1,0 +1,6 @@
+--network host --build-arg HTTP_PROXY=http://10.126.138.71:3128 --build-arg HTTPS_PROXY=http://10.126.138.71:3128
+
+
+FROM harbor.dap.local/kubesphereio/builder-nodejs16-python:v1
+
+RUN npm config set proxy http://10.126.138.71:3128 && npm config set https-proxy http://10.126.138.71:3128 && npm install -g pnpm

@@ -1,0 +1,2 @@
+#!/bin/sh
+git log --since=2022-01-01 --until=2022-12-22 --format='%aN' | sort -u | while read name; do echo "$name\t"; git log --author="$name" --since=2022-01-01 --until=2022-12-22 --pretty=tformat: --numstat | grep "\(.html\|.java\|.xml\|.properties\|.js\|.css\)$" | awk '{ add += $1; subs += $2; loc += $1 - $2 } END { printf "added lines: %s, removed lines: %s, total lines: %s\n", add, subs, loc }' -; done
