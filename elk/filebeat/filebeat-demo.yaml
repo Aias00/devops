@@ -1,0 +1,309 @@
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: false
+setup.template.settings:
+  index.number_of_shards: 1
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+  - add_kubernetes_metadata: ~
+  # - dissect:
+  #     # when.contains:
+  #       # app_name: workflow
+  #     tokenizer: "%{time} %{level} [%{traceId}] %{level} [%{thread}] (%{class}) %{msg}"
+  #     field: "message"
+  #     target_prefix: ""
+  - drop_fields:
+    # 删除的多余字段
+      fields: ["host", "tags", "ecs", "log", "prospector", "agent", "input", "beat", "offset", "os"]
+      ignore_missing: true
+  
+  - script:
+      lang: javascript
+      id: my_filter
+      tag: enable
+      source: >
+        function process(event) {
+            var str= event.Get("message");
+            var time =str.split(" ").slice(0,2).join(" ");
+            event.Put("start_time",time);
+        }
+  # # 将自定义的字段替换到系统默认时间戳，解决顺序错乱问题（写入时间与抓取时间不一致导致）
+  # - timestamp:
+      # field: start_time
+      # timezone: Asia/Shanghai
+      # layouts:
+      #   - '2021-01-01 12:12:05'
+      #   - '2021-01-02 12:12:05.999'
+      # test:
+      #   - '2019-06-22 16:33:51'
+
+filebeat.inputs:
+
+- type: filestream
+  enabled: true
+  paths:
+    - /data/demo/expos-admin-bootstrap/logs/*-total.log
+  fields:
+    app_name: sysadmin
+  fields_under_root: true
+  # 多行合并
+  parsers:
+    - ndjson:
+        keys_under_root: true
+        message_key: msg
+    # 合并行设置
+    - multiline:
+        type: pattern
+        pattern: '^20[0-9]{2}-[0-9]{2}-[0-9]{2}'
+        negate: true
+        match: after
+
+- type: filestream
+  enabled: true
+  paths:
+    - /data/demo/workflow-bootstrap/logs/*-total.log
+  fields:
+    app_name: workflow
+  fields_under_root: true
+  # 多行合并
+  parsers:
+    - ndjson:
+        keys_under_root: true
+        message_key: msg
+    # 合并行设置
+    - multiline:
+        type: pattern
+        pattern: '^20[0-9]{2}-[0-9]{2}-[0-9]{2}'
+        negate: true
+        match: after
+
+
+- type: filestream
+  enabled: true
+  paths:
+    - /data/demo/bi-data/logs/*-total.log
+  fields:
+    app_name: bidata
+  fields_under_root: true
+  # 多行合并
+  parsers:
+    - ndjson:
+        keys_under_root: true
+        message_key: msg
+    # 合并行设置
+    - multiline:
+        type: pattern
+        pattern: '^20[0-9]{2}-[0-9]{2}-[0-9]{2}'
+        negate: true
+        match: after
+
+- type: filestream
+  enabled: true
+  paths:
+    - /data/demo/bi-web/logs/*-total.log
+  fields:
+    app_name: biweb
+  fields_under_root: true
+  # 多行合并
+  parsers:
+    - ndjson:
+        keys_under_root: true
+        message_key: msg
+    # 合并行设置
+    - multiline:
+        type: pattern
+        pattern: '^20[0-9]{2}-[0-9]{2}-[0-9]{2}'
+        negate: true
+        match: after
+
+- type: filestream
+  enabled: true
+  paths:
+    - /data/demo/metrics-report/logs/*-total.log
+  fields:
+    app_name: metrics-report
+  fields_under_root: true
+  # 多行合并
+  parsers:
+    - ndjson:
+        keys_under_root: true
+        message_key: msg
+    # 合并行设置
+    - multiline:
+        type: pattern
+        pattern: '^20[0-9]{2}-[0-9]{2}-[0-9]{2}'
+        negate: true
+        match: after
+
+- type: filestream
+  enabled: true
+  paths:
+    - /data/demo/datamodule/logs/*-total.log
+  fields:
+    app_name: datamodule
+  fields_under_root: true
+  # 多行合并
+  parsers:
+    - ndjson:
+        keys_under_root: true
+        message_key: msg
+    # 合并行设置
+    - multiline:
+        type: pattern
+        pattern: '^20[0-9]{2}-[0-9]{2}-[0-9]{2}'
+        negate: true
+        match: after
+
+- type: filestream
+  enabled: true
+  paths:
+    - /data/demo/data-standard/logs/data-standard-bootstrap-saveas-total.log
+  fields:
+    app_name: standard-saveas
+  fields_under_root: true
+  # 多行合并
+  parsers:
+    - ndjson:
+        keys_under_root: true
+        message_key: msg
+    # 合并行设置
+    - multiline:
+        type: pattern
+        pattern: '^20[0-9]{2}-[0-9]{2}-[0-9]{2}'
+        negate: true
+        match: after
+
+- type: filestream
+  enabled: true
+  paths:
+    - /data/demo/data-standard/logs/data-standard-bootstrap-web-total.log
+  fields:
+    app_name: standard-web
+  fields_under_root: true
+  # 多行合并
+  parsers:
+    - ndjson:
+        keys_under_root: true
+        message_key: msg
+    # 合并行设置
+    - multiline:
+        type: pattern
+        pattern: '^20[0-9]{2}-[0-9]{2}-[0-9]{2}'
+        negate: true
+        match: after
+
+- type: filestream
+  enabled: true
+  paths:
+    - /data/demo/metadata/logs/*-total.log
+  fields:
+    app_name: metadata
+  fields_under_root: true
+  # 多行合并
+  parsers:
+    - ndjson:
+        keys_under_root: true
+        message_key: msg
+    # 合并行设置
+    - multiline:
+        type: pattern
+        pattern: '^20[0-9]{2}-[0-9]{2}-[0-9]{2}'
+        negate: true
+        match: after
+
+- type: filestream
+  enabled: true
+  paths:
+    - /data/demo/knowledge/logs/expos-knowledge-bootstrap-web-total.log
+  fields:
+    app_name: knowledge-web
+  fields_under_root: true
+  # 多行合并
+  parsers:
+    - ndjson:
+        keys_under_root: true
+        message_key: msg
+    # 合并行设置
+    - multiline:
+        type: pattern
+        pattern: '^20[0-9]{2}-[0-9]{2}-[0-9]{2}'
+        negate: true
+        match: after
+
+- type: filestream
+  enabled: true
+  paths:
+    - /data/demo/knowledge/logs/expos-knowledge-bootstrap-elastic-total.log
+  fields:
+    app_name: knowledge-elastic
+  fields_under_root: true
+  # 多行合并
+  parsers:
+    - ndjson:
+        keys_under_root: true
+        message_key: msg
+    # 合并行设置
+    - multiline:
+        type: pattern
+        pattern: '^20[0-9]{2}-[0-9]{2}-[0-9]{2}'
+        negate: true
+        match: after
+
+- type: filestream
+  enabled: true
+  paths:
+    - /data/demo/metrics/logs/*-total.log
+  fields:
+    app_name: metrics-web
+  fields_under_root: true
+  # 多行合并
+  parsers:
+    - ndjson:
+        keys_under_root: true
+        message_key: msg
+    # 合并行设置
+    - multiline:
+        type: pattern
+        pattern: '^20[0-9]{2}-[0-9]{2}-[0-9]{2}'
+        negate: true
+        match: after
+
+- type: filestream
+  enabled: true
+  paths:
+    - /data/demo/metrics-fill/logs/*-total.log
+  fields:
+    app_name: metrics-fill
+  fields_under_root: true
+  # 多行合并
+  parsers:
+    - ndjson:
+        keys_under_root: true
+        message_key: msg
+    # 合并行设置
+    - multiline:
+        type: pattern
+        pattern: '^20[0-9]{2}-[0-9]{2}-[0-9]{2}'
+        negate: true
+        match: after
+        
+# output.logstash:
+  # hosts: ["172.16.21.64:5044"]
+
+output.elasticsearch:
+  hosts: 'es-service.dap-demo-env:9200'
+  username: 'elastic'
+  password: 'Ubd@2022'
+  indices:
+    - index: "applog-%{[app_name]}-%{+yyyy.MM.dd}"
+
+# output.redis:
+  # enable: true
+  # hosts: 'redis-service.dap-demo-env:6379'
+  # password: 'Uni.com@2022'
+  # key: 'filebeat-redis'
+  # db: 10
+  # timeout: 5
